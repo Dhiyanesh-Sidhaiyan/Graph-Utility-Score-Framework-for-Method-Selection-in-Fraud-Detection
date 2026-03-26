@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUS Framework - Complete Explanation</title>
+<style>
+  body {
+    font-family: Georgia, serif;
+    max-width: 860px;
+    margin: 48px auto;
+    padding: 0 24px;
+    line-height: 1.85;
+    color: #111;
+    background: #fff;
+  }
+  h1 { font-size: 2rem; border-bottom: 3px solid #111; padding-bottom: 10px; }
+  h2 { font-size: 1.4rem; margin-top: 56px; border-bottom: 1px solid #bbb; padding-bottom: 6px; }
+  h3 { font-size: 1.1rem; margin-top: 32px; color: #222; }
+  p  { margin: 14px 0; color: #222; }
+  pre {
+    background: #f5f5f5;
+    border-left: 4px solid #555;
+    padding: 14px 18px;
+    overflow-x: auto;
+    font-size: 0.86em;
+    line-height: 1.6;
+    margin: 18px 0;
+  }
+  code { background: #efefef; padding: 1px 5px; font-family: monospace; font-size: 0.92em; }
+  .note {
+    border-left: 4px solid #333;
+    padding: 10px 18px;
+    margin: 20px 0;
+    background: #f9f9f9;
+  }
+  .warn {
+    border-left: 4px solid #888;
+    padding: 10px 18px;
+    margin: 20px 0;
+    background: #f5f5f5;
+    font-style: italic;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 18px 0;
+    font-size: 0.93em;
+  }
+  th, td { border: 1px solid #ccc; padding: 7px 12px; text-align: left; }
+  th { background: #eee; font-weight: bold; }
+  hr { border: none; border-top: 1px solid #ddd; margin: 48px 0; }
+  .step {
+    counter-increment: step-counter;
+    margin-top: 48px;
+  }
+  .diagram {
+    font-family: monospace;
+    background: #f5f5f5;
+    padding: 18px;
+    white-space: pre;
+    overflow-x: auto;
+    font-size: 0.84em;
+    line-height: 1.55;
+    margin: 20px 0;
+  }
+  ol.big { padding-left: 22px; }
+  ol.big li { margin-bottom: 10px; }
+  ul.plain { padding-left: 22px; }
+  ul.plain li { margin-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<h1>The GUS Framework — Complete Explanation</h1>
+
+<p>
+  <strong>GUS</strong> stands for <strong>Graph Utility Scoring</strong>.
+  It is the research framework built around the TH-GFD codebase that answers
+  one practical engineering question:
+</p>
+
+<div class="note">
+  <strong>The central question GUS answers:</strong><br>
+  You have a fraud detection problem. Should you spend the time building a
+  Graph Neural Network, or will a plain XGBoost model give you the same result?
+  How can you know <em>before</em> spending weeks building the GNN?
+</div>
+
+<p>
+  That is it. Everything in the framework — the models, the datasets, the metrics,
+  the two-phase training — is built in service of answering that question with data.
+</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 1 — Why This Problem Exists</h2>
+
+<h3>The situation</h3>
+<p>
+  GNNs are expensive. They require graph construction, a different data pipeline,
+  new model code, longer training, and deeper expertise to debug. If XGBoost
+  already gives you AUC = 0.97, spending a month building a GNN to get AUC = 0.98
+  is almost certainly not worth it.
+</p>
+<p>
+  On the other hand, some fraud problems are fundamentally relational.
+  Fraud rings, shared accounts, coordinated bot networks — these patterns
+  are invisible to tabular models but obvious to a GNN. On those datasets,
+  GNNs can improve AUC by 10–20 points.
+</p>
+<p>
+  The problem is that before GUS, there was no principled way to tell which
+  situation you were in. Researchers would train a GNN, discover it offered
+  no improvement, and write it off as a failed experiment — without understanding
+  <em>why</em> it failed or how to predict failure in advance.
+</p>
+
+<h3>What GUS proposes</h3>
+<p>
+  GUS proposes that whether a GNN helps depends on two measurable properties
+  of your dataset that you can compute <em>before training any model</em>:
+</p>
+<ol class="big">
+  <li>
+    <strong>How much can the raw features predict fraud?</strong>
+    (called <em>Feature Predictiveness</em>)<br>
+    If features alone give near-perfect AUC, there is nothing left for the
+    graph structure to add.
+  </li>
+  <li>
+    <strong>How strongly do fraud nodes cluster together in the graph?</strong>
+    (called <em>Fraud Homophily</em>)<br>
+    If fraudsters tend to connect to other fraudsters, a GNN can propagate
+    the fraud signal through the graph. If fraud nodes are scattered randomly,
+    message passing will average away the signal.
+  </li>
+</ol>
+
+<p>From these two properties, GUS computes a single number called <strong>Graph Utility</strong>,
+and uses it to decide whether to recommend a GNN or a tabular model.</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 2 — The Three Measurements GUS Makes</h2>
+
+<h3>Measurement 1: Feature Predictiveness</h3>
+
+<p>
+  <strong>What it is:</strong> Train a simple model (logistic regression or random forest)
+  using only the raw tabular features — no graph at all.
+  Measure the AUC. That is the Feature Predictiveness score.
+</p>
+<p>
+  <strong>Why it matters:</strong> It tells you how much of the fraud signal
+  is already captured by the features alone. If a transaction amount of $50,000
+  from country X through declarant Y is already 97% likely to be fraud based
+  on those numbers, the graph adds nothing.
+</p>
+<p>
+  <strong>Range:</strong> 0.5 (random) to 1.0 (perfect).<br>
+  Low score (0.5–0.7): features are weak, there is room for the graph to add value.<br>
+  High score (0.9+): features already explain fraud well, GNN is unlikely to help much.
+</p>
+
+<pre>
+# From analyze_datasets.py
+# Feature Predictiveness: AUC of a simple model using only features
+
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score
+
+rf = RandomForestClassifier(n_estimators=100)
+rf.fit(X_train, y_train)
+feature_pred = roc_auc_score(y_test, rf.predict_proba(X_test)[:, 1])
+
+# Example values from the actual experiments:
+# Credit Card fraud:   feature_pred = 0.974  (features almost perfect)
+# Ecommerce fraud:     feature_pred = 0.751  (features moderate)
+# Vehicle Loan:        feature_pred = 0.631  (features weak)
+</pre>
+
+<h3>Measurement 2: Fraud Homophily</h3>
+
+<p>
+  <strong>What it is:</strong> Build a graph where transactions that share an entity
+  (same importer, same IP, same device) are connected. Then ask:
+  what fraction of the edges connect two nodes that have the same label
+  (both fraud, or both legitimate)?
+</p>
+<p>
+  <strong>Formally:</strong> homophily = (edges between same-label nodes) / (total edges)
+</p>
+<p>
+  <strong>Why it matters:</strong> Message passing in a GNN averages a node's embedding
+  with its neighbors' embeddings. If neighbors tend to share the same label,
+  this averaging strengthens the signal. If neighbors are a random mix of fraud
+  and legitimate, the averaging destroys the signal.
+</p>
+<p>
+  <strong>Range:</strong> 0 to 1.<br>
+  Above 0.5 means nodes more often connect to same-class neighbors — useful for GNN.<br>
+  Below 0.5 means nodes more often connect to opposite-class neighbors — harmful for GNN.
+</p>
+
+<pre>
+# From analyze_datasets.py — compute_homophily()
+
+def compute_homophily(edge_index, y):
+    src = edge_index[0]
+    dst = edge_index[1]
+    # What fraction of edges connect nodes with the same label?
+    same_label = (y[src] == y[dst]).mean()
+    return same_label
+
+# Example values from the actual experiments:
+# IP Blocklist:    fraud_homo = 0.777  (fraud nodes cluster tightly)
+# Ecommerce:       fraud_homo = 0.734  (good clustering)
+# Vehicle Loan:    fraud_homo = 0.238  (fraud is scattered)
+# Credit Card:     fraud_homo = 0.041  (fraud is nearly isolated)
+</pre>
+
+<h3>Measurement 3: Graph Utility and Effective Graph Utility</h3>
+
+<p>
+  <strong>Graph Utility</strong> is a raw score indicating how much value
+  the graph structure adds beyond the features. The framework computes it
+  empirically: train both a tabular model and a GNN, subtract their AUC scores.
+</p>
+
+<pre>
+Graph_Utility = AUC(GNN) - AUC(best_tabular_model)
+</pre>
+
+<p>
+  But Graph Utility alone is misleading. A dataset where XGBoost already scores
+  AUC = 0.9997 cannot be improved by much — there simply is no room.
+  So GUS introduces <strong>Effective Graph Utility (EGU)</strong>:
+</p>
+
+<pre>
+# From complete_gnn_experiments.py — DatasetSpec
+
+@property
+def effective_gu(self) -> float:
+    # Scales Graph_Utility by how much room for improvement exists
+    return self.graph_utility * (1 - self.xgb_auc)
+
+# Examples:
+# IP Blocklist:   GU=0.2895, XGB_AUC=0.9116  ->  EGU = 0.2895 * (1 - 0.9116) = 0.0256
+# Customs:        GU=0.11,   XGB_AUC=0.9997  ->  EGU = 0.11   * (1 - 0.9997) = 0.000033
+# Ecommerce:      GU=0.06,   XGB_AUC=0.7808  ->  EGU = 0.06   * (1 - 0.7808) = 0.0132
+</pre>
+
+<div class="note">
+  <strong>The key insight:</strong> Customs Fraud has a Graph_Utility of 0.11 — which sounds
+  meaningful — but an Effective_GU of only 0.000033, because XGBoost already scores 0.9997.
+  There is nothing left to improve. The GUS framework catches this and correctly recommends
+  XGBoost for Customs, even though the raw graph utility looks non-zero.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 3 — The Decision Rule</h2>
+
+<p>
+  After measuring EGU, the framework applies a simple threshold rule:
+</p>
+
+<pre>
+IF Effective_GU > 0.01:
+    RECOMMEND GNN
+ELSE:
+    RECOMMEND XGBoost / tabular model
+</pre>
+
+<p>
+  This rule was validated on 12 real-world fraud datasets and achieved
+  75% accuracy in predicting which model type would win.
+  The threshold 0.01 was determined empirically by finding the value
+  that best separates datasets where GNNs improved performance from those
+  where they did not.
+</p>
+
+<div class="diagram">
+Dataset            Graph_Utility  XGB_AUC  Effective_GU  Decision      Correct?
+---------------------------------------------------------------------------
+IP Blocklist         0.2895        0.9116      0.0256       GNN            YES
+Ecommerce            0.0600        0.7808      0.0132       GNN            YES
+Vehicle Loan         0.0500        0.6626      0.0169       GNN            YES
+Yelp Fraud           0.1000        0.9348      0.0065       XGBoost        YES
+Twitter Bots         0.0900        0.9370      0.0057       XGBoost        YES
+Elliptic Bitcoin     0.1500        0.9962      0.0006       XGBoost        YES
+Credit Card          0.0500        0.9592      0.0020       XGBoost        YES
+Customs              0.1100        0.9997      0.0000       XGBoost        YES
+Amazon               0.1200        0.9769      0.0028       XGBoost        YES
+Malicious URLs       0.0400        0.9885      0.0005       XGBoost        YES
+CC Transactions      0.0700        0.9885      0.0008       XGBoost        YES
+Fake Job Postings    0.1000        0.9738      0.0026       XGBoost      (mixed)
+</div>
+
+<h3>What validates this rule</h3>
+<p>
+  The correlation between Effective_GU and actual GNN improvement over XGBoost
+  was measured at <strong>r = 0.6434, p = 0.024</strong> — statistically significant.
+  This means EGU is a real predictor of GNN benefit, not a coincidence.
+</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 4 — The AUC Prediction Formula</h2>
+
+<p>
+  GUS goes further. It builds a regression model that predicts what AUC a baseline
+  model will achieve on a new dataset, using only the graph structural properties.
+  This lets you estimate model performance before training.
+</p>
+
+<pre>
+# From EXPERIMENT_RESULTS.md — linear regression fit on 12 datasets
+
+Predicted_AUC = 0.611 × Feature_Pred
+             +  (-0.038) × Fraud_Homo
+             +  0.076 × Fraud_Rate
+             +  0.398
+
+R² = 0.6095
+</pre>
+
+<p>
+  Reading this formula:
+</p>
+<ul class="plain">
+  <li>
+    <strong>Feature Predictiveness (coefficient 0.611, strongest)</strong>:
+    The single most important predictor of AUC. If features are strong, AUC will be high.
+  </li>
+  <li>
+    <strong>Fraud Homophily (coefficient -0.038, small and negative)</strong>:
+    High homophily actually slightly lowers baseline AUC in this formula.
+    This makes sense: high homophily means fraud clusters together,
+    which makes it easier to detect with a GNN but may make the raw features
+    less individually discriminative (individual transactions look similar to their neighbors).
+  </li>
+  <li>
+    <strong>Fraud Rate (coefficient 0.076, small positive)</strong>:
+    Slightly higher fraud rate makes AUC slightly higher, probably because
+    there are more positive examples to learn from.
+  </li>
+</ul>
+
+<div class="warn">
+  R² = 0.61 means this formula explains about 61% of AUC variance across datasets.
+  It is not a perfect predictor, but it is useful for a quick estimate on a new dataset
+  before running any experiments.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 5 — The TH-GFD Model (The GNN That GUS Tests)</h2>
+
+<p>
+  When GUS recommends a GNN, the specific model it uses is TH-GFD.
+  Understanding TH-GFD is understanding what GUS deploys when it says
+  "a GNN will help here."
+</p>
+<p>
+  TH-GFD has four distinguishing design choices that make it well-suited
+  for fraud detection specifically:
+</p>
+
+<h3>Design Choice 1 — Heterogeneous graph (multiple node types)</h3>
+<p>
+  Rather than a single type of node, TH-GFD builds a graph with
+  <em>different kinds</em> of nodes — transactions, importers, declarants,
+  countries, offices. Each transaction is connected to the entities it shares.
+  Two transactions are linked if and only if they share an entity.
+</p>
+<p>
+  Why this matters: it models the real structure of fraud.
+  A fraud ring is not a set of transactions with similar amounts.
+  It is a set of transactions that share an importer or a customs agent
+  who is coordinating the evasion. The heterogeneous graph captures
+  exactly that structure.
+</p>
+
+<div class="diagram">
+HETEROGENEOUS GRAPH STRUCTURE
+------------------------------
+
+  T001 ---[to_importer]---> IMP_A
+  T002 ---[to_importer]---> IMP_A    <- T001 and T002 share IMP_A
+  T003 ---[to_importer]---> IMP_B      and are therefore indirectly connected
+
+  T001 ---[to_declarant]-> DEC_07
+  T004 ---[to_declarant]-> DEC_07    <- T001 and T004 share DEC_07
+
+  T001 ---[to_country]---> CN
+  T002 ---[to_country]---> CN
+
+Node types:  {transaction, importer, declarant, office, country}
+Edge types:  {tx->importer, tx->declarant, tx->office, tx->country}
+             + all reverse edges {importer->tx, declarant->tx, ...}
+</div>
+
+<h3>Design Choice 2 — Temporal decay (time-aware edges)</h3>
+<p>
+  Every edge carries the timestamp of when the transaction occurred.
+  When computing attention weights during message passing, edges from
+  the distant past get lower weight than recent edges. The decay formula is:
+</p>
+
+<pre>
+phi(delta_t) = exp( -lambda * delta_t )
+
+delta_t  = current_time - edge_time   (days ago)
+lambda   = learnable decay rate, one per relation type
+           (importers might decay slowly, countries might decay fast)
+
+Result:  a weight in [0, 1]
+         edge from yesterday  ->  weight near 1.0
+         edge from 3 years ago -> weight near 0.0
+</pre>
+
+<p>
+  Why this matters: fraud patterns change. An importer who was fraudulent
+  in 2018 may have reformed, or may have been caught and replaced. Treating
+  old and new connections with equal weight would degrade predictions.
+</p>
+
+<h3>Design Choice 3 — Relation-specific attention (different weights per edge type)</h3>
+<p>
+  Not all connections are equally informative. Sharing the same importer
+  might be a stronger fraud signal than sharing the same country of origin.
+  TH-GFD learns a separate attention weight for each relation type.
+</p>
+
+<pre>
+# For each edge type (e.g., importer edges):
+attention_score = LeakyReLU( W_importer * [h_src || h_dst] )
+                  * temporal_decay(delta_t)
+
+# Softmax over all importer neighbors of this transaction
+# -> model learns how much to trust each individual importer connection
+</pre>
+
+<h3>Design Choice 4 — Two-head output (fraud + revenue)</h3>
+<p>
+  The model predicts two things simultaneously from the same embedding:
+  whether a transaction is fraud, and how much revenue would be recovered
+  if it were inspected. This is relevant for customs agencies that must
+  prioritize inspections to maximize recovered tax revenue, not just fraud count.
+</p>
+
+<pre>
+tx_embedding  (64-dim, one per transaction)
+     |
+     +---> classifier head ---> fraud_probability (0 to 1)
+     |
+     +---> revenue head    ---> expected_revenue ($)
+
+Loss = cross_entropy(fraud_pred, fraud_label)
+     + 0.3 * MSE(revenue_pred, actual_revenue)
+</pre>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 6 — Two-Phase Training (Why and How)</h2>
+
+<p>
+  This is one of the most important parts of GUS/TH-GFD and one that is
+  easiest to misunderstand. The training has two completely separate phases.
+  Understanding <em>why</em> requires understanding the label scarcity problem.
+</p>
+
+<h3>The label scarcity problem</h3>
+<p>
+  In customs fraud detection, a shipment only gets a label (fraud / not fraud)
+  if it is physically inspected. Agencies inspect roughly 1–10% of shipments.
+  The other 90–99% have no label at all — we do not know if they are fraud.
+</p>
+<p>
+  This means you cannot simply train a supervised classifier, because
+  90% of your data has no supervision signal. You need a way to extract
+  useful information from the unlabeled data.
+</p>
+
+<h3>Phase 1 — Self-supervised pre-training (no labels required)</h3>
+<p>
+  Before using any fraud labels, the model learns useful representations
+  by solving a self-supervised task. The task is: given two different
+  "views" of the same transaction (created by randomly perturbing the graph),
+  the model must produce similar embeddings for both views.
+</p>
+<p>
+  Two types of perturbation are used:
+</p>
+
+<pre>
+# From experiments/train_thgfd.py — THGFDTrainer
+
+# View 1: Temporal augmentation
+# Drop some old edges, keep mostly recent ones
+# -> simulates seeing the transaction from a "recent history" perspective
+data_aug1 = temporal_augmentation(data)
+
+# View 2: Relation augmentation
+# Randomly mask out one entire relation type (e.g., hide all country edges)
+# -> simulates seeing the transaction without one type of context
+data_aug2 = relation_augmentation(data)
+
+# Get embeddings for both views
+z1 = model.get_embeddings(data_aug1)   # (N_transactions, 64)
+z2 = model.get_embeddings(data_aug2)   # (N_transactions, 64)
+
+# Contrastive loss (NT-Xent):
+# - Same transaction in both views -> push their embeddings CLOSE together
+# - Different transactions           -> push their embeddings FAR apart
+loss_pretrain = contrastive_loss(z1, z2)
+</pre>
+
+<p>
+  The contrastive loss formula:
+</p>
+
+<pre>
+z1 = normalize(z1)   # L2 normalize to unit sphere
+z2 = normalize(z2)
+
+similarity_matrix[i][j] = dot(z1[i], z2[j]) / temperature
+# temperature = 0.5 (controls sharpness)
+
+# For transaction i:
+#   positive pair: (z1[i], z2[i]) -- same transaction, different view
+#   negative pairs: (z1[i], z2[j]) for all j != i
+loss[i] = -similarity_matrix[i][i]
+        + log( sum( exp(similarity_matrix[i][j]) ) for all j )
+</pre>
+
+<p>
+  After pre-training, the model has learned that transactions with
+  similar entities and similar time patterns should have similar embeddings —
+  without ever seeing a fraud label.
+</p>
+
+<h3>Phase 2 — Semi-supervised fine-tuning (with labels + pseudo-labels)</h3>
+<p>
+  Now we switch to supervised learning, using only the small set of
+  labeled transactions. Three loss terms are combined:
+</p>
+
+<pre>
+# Term 1: Supervised fraud loss (only on labeled transactions)
+loss_fraud = cross_entropy(fraud_logits[labeled_mask], y[labeled_mask])
+
+# Term 2: Revenue prediction loss (only on labeled transactions)
+loss_revenue = MSE(revenue_pred[labeled_mask], actual_revenue[labeled_mask])
+
+# Term 3: Pseudo-label loss (on unlabeled transactions)
+# If the model is very confident about an unlabeled transaction,
+# treat that prediction as ground truth and train on it
+
+fraud_proba = sigmoid(fraud_logits[unlabeled_mask])
+
+pseudo_fraud = (fraud_proba > threshold)     # model thinks this is fraud
+pseudo_legit = (fraud_proba < 1 - threshold) # model thinks this is legitimate
+
+loss_pseudo = cross_entropy(logits[pseudo_fraud], ones)
+            + cross_entropy(logits[pseudo_legit], zeros)
+
+# Curriculum: threshold starts strict (0.95) and gradually relaxes to 0.70
+# This means we only add easy pseudo-labels first, then harder ones later
+threshold = 0.95 -> 0.70   (decreases over training epochs)
+
+# Total loss
+loss = loss_fraud + 0.3 * loss_revenue + 0.1 * loss_pseudo
+</pre>
+
+<div class="note">
+  <strong>Why curriculum?</strong> Starting with threshold = 0.95 means only the
+  most obvious frauds get pseudo-labeled first. As training progresses and the model
+  gets better, we lower the threshold to 0.70 and include more borderline cases.
+  This prevents the model from confidently pseudo-labeling things wrong early in training
+  and then reinforcing those mistakes.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 7 — The Baseline Models GUS Compares Against</h2>
+
+<p>
+  GUS is a framework for deciding whether a GNN is better than the alternatives.
+  To make that decision, it must actually run the alternatives. The baselines are:
+</p>
+
+<table>
+  <tr><th>Model</th><th>Type</th><th>When it tends to win</th></tr>
+  <tr><td>XGBoost</td><td>Tabular gradient boosting</td><td>High feature predictiveness, low effective GU</td></tr>
+  <tr><td>LightGBM</td><td>Tabular gradient boosting (faster)</td><td>Same as XGBoost, large datasets</td></tr>
+  <tr><td>Random Forest</td><td>Tabular ensemble</td><td>Used as quick baseline, rarely wins</td></tr>
+  <tr><td>GCN</td><td>Simple homogeneous GNN</td><td>Moderate homophily, simple graph structure</td></tr>
+  <tr><td>GraphSAGE</td><td>Sampling-based GNN</td><td>Large graphs, inductive tasks</td></tr>
+  <tr><td>GAT</td><td>Attention-based GNN</td><td>High homophily, node importance varies</td></tr>
+  <tr><td>Hybrid MLP+GNN</td><td>Combined</td><td>Mixed signals (features + graph)</td></tr>
+  <tr><td>TH-GFD</td><td>Full temporal-hetero GNN</td><td>Temporal data, multiple entity types</td></tr>
+</table>
+
+<p>
+  All models are evaluated on the same test set using the same metrics.
+  The comparison is always: best GNN AUC vs best tabular AUC.
+</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 8 — The Evaluation Metrics GUS Uses</h2>
+
+<p>
+  Standard accuracy is useless for fraud detection because the classes
+  are extremely imbalanced (often 0.1–5% fraud). GUS uses metrics that
+  measure ranking quality and operational performance.
+</p>
+
+<h3>AUC-ROC</h3>
+<p>
+  Probability that a randomly chosen fraud case gets a higher score than
+  a randomly chosen legitimate case. Threshold-independent. The primary
+  metric for model selection.
+</p>
+<pre>
+AUC = P( score(fraud) > score(legitimate) )
+0.5 = random guessing
+1.0 = perfect ranking
+</pre>
+
+<h3>Average Precision (AP)</h3>
+<p>
+  Area under the precision-recall curve. More sensitive than AUC when
+  the fraud rate is very low, because it focuses on the positive class.
+</p>
+
+<h3>Precision@K%, Recall@K%, Lift@K%</h3>
+<p>
+  These are operational metrics. In practice, a fraud team can only
+  investigate K% of all transactions per day. These metrics ask:
+  if you investigate the top K% by fraud score, how many are actually fraud?
+</p>
+<pre>
+K = 1%, 5%, or 10%  (the framework tests all three)
+
+P@K%  = (fraud found in top K%) / K
+R@K%  = (fraud found in top K%) / (total fraud)
+Lift  = P@K% / base_fraud_rate   (how much better than random inspection)
+
+Example with K=1%, fraud_rate=5%:
+  Lift = 10 means top 1% contains 10x more fraud than a random 1% would.
+</pre>
+
+<h3>NDCG</h3>
+<p>
+  Normalized Discounted Cumulative Gain. Measures ranking quality with
+  more credit for finding fraud at the very top of the list, decreasing
+  credit as you go further down.
+</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 9 — The Graphs GUS Builds for Baseline GNNs</h2>
+
+<p>
+  When running the GCN/GraphSAGE/GAT baselines, GUS does not use the
+  domain-specific heterogeneous graph (that is only for TH-GFD).
+  Instead it builds a generic graph from the feature space using one
+  of three methods:
+</p>
+
+<h3>Method 1 — KNN Graph (default)</h3>
+<p>
+  Connect each transaction to its K nearest neighbors in feature space
+  (using Euclidean distance after normalization). K = 10 by default.
+  Used when you do not have domain knowledge about which transactions
+  should be connected.
+</p>
+
+<pre>
+# From complete_gnn_experiments.py — create_knn_graph()
+nn = NearestNeighbors(n_neighbors=10)
+nn.fit(X_scaled)
+distances, indices = nn.kneighbors(X_scaled)
+# Connect every transaction to its 10 most similar transactions by features
+edge_index = [(i, j) for i in range(n) for j in indices[i][1:]]
+</pre>
+
+<h3>Method 2 — Similarity Graph</h3>
+<p>
+  Connect transactions if their cosine similarity exceeds a threshold (0.9).
+  Results in a sparser graph where only very similar transactions are linked.
+</p>
+
+<h3>Method 3 — Label Propagation Graph</h3>
+<p>
+  For labeled nodes, bias the connections towards same-class neighbors.
+  This explicitly engineers the graph to have high homophily, boosting
+  GNN performance. Used to measure the upper bound of GNN potential
+  on a dataset.
+</p>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 10 — The 12 Datasets and What GUS Learned From Them</h2>
+
+<p>
+  GUS was validated on 12 real-world fraud detection datasets spanning
+  five different domains. Here is what each dataset taught the framework:
+</p>
+
+<table>
+  <tr>
+    <th>Dataset</th>
+    <th>Domain</th>
+    <th>Feat. Pred.</th>
+    <th>Fraud Homo.</th>
+    <th>Eff. GU</th>
+    <th>Winner</th>
+    <th>Lesson</th>
+  </tr>
+  <tr>
+    <td>IP Blocklist</td>
+    <td>Cybersecurity</td>
+    <td>0.784</td>
+    <td>0.777</td>
+    <td>0.0256</td>
+    <td>GNN</td>
+    <td>High homophily + moderate features = GNN wins clearly</td>
+  </tr>
+  <tr>
+    <td>Ecommerce</td>
+    <td>E-commerce</td>
+    <td>0.751</td>
+    <td>0.734</td>
+    <td>0.0132</td>
+    <td>GNN</td>
+    <td>Moderate features, good clustering = GNN wins</td>
+  </tr>
+  <tr>
+    <td>Vehicle Loan</td>
+    <td>Finance</td>
+    <td>0.631</td>
+    <td>0.238</td>
+    <td>0.0169</td>
+    <td>GNN</td>
+    <td>Weak features compensate for low homophily; GNN wins</td>
+  </tr>
+  <tr>
+    <td>Customs</td>
+    <td>Trade</td>
+    <td>1.000</td>
+    <td>0.162</td>
+    <td>0.000</td>
+    <td>XGBoost</td>
+    <td>Perfect features = no room for GNN to help</td>
+  </tr>
+  <tr>
+    <td>Yelp</td>
+    <td>Review</td>
+    <td>0.643</td>
+    <td>0.196</td>
+    <td>0.0065</td>
+    <td>XGBoost</td>
+    <td>Low homophily cancels out weak features; GNN marginal</td>
+  </tr>
+  <tr>
+    <td>Twitter Bots</td>
+    <td>Social</td>
+    <td>0.886</td>
+    <td>0.411</td>
+    <td>0.0057</td>
+    <td>XGBoost</td>
+    <td>Strong features already detect bots well</td>
+  </tr>
+  <tr>
+    <td>Fake Job</td>
+    <td>Employment</td>
+    <td>0.868</td>
+    <td>0.360</td>
+    <td>0.0026</td>
+    <td>Mixed</td>
+    <td>Borderline case; features strong but some graph signal</td>
+  </tr>
+  <tr>
+    <td>Amazon</td>
+    <td>Review</td>
+    <td>0.957</td>
+    <td>0.102</td>
+    <td>0.0028</td>
+    <td>XGBoost</td>
+    <td>High feature pred + very low homophily = XGBoost</td>
+  </tr>
+  <tr>
+    <td>Elliptic</td>
+    <td>Crypto</td>
+    <td>0.959</td>
+    <td>0.510</td>
+    <td>0.0006</td>
+    <td>XGBoost</td>
+    <td>XGBoost at 0.996 — no room left despite good homophily</td>
+  </tr>
+  <tr>
+    <td>Credit Card</td>
+    <td>Payment</td>
+    <td>0.974</td>
+    <td>0.041</td>
+    <td>0.0020</td>
+    <td>XGBoost</td>
+    <td>Near-perfect features, near-zero homophily; GNN pointless</td>
+  </tr>
+  <tr>
+    <td>CC Transactions</td>
+    <td>Payment</td>
+    <td>0.965</td>
+    <td>0.019</td>
+    <td>0.0008</td>
+    <td>XGBoost</td>
+    <td>Same as above; payment fraud is a feature problem, not a graph problem</td>
+  </tr>
+  <tr>
+    <td>Malicious URLs</td>
+    <td>Cybersecurity</td>
+    <td>0.970</td>
+    <td>0.756</td>
+    <td>0.0005</td>
+    <td>XGBoost</td>
+    <td>Interesting: high homophily but features so strong GNN adds nothing</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>The clearest takeaway:</strong> When Feature Predictiveness is above 0.95
+  (meaning a simple model already reaches 95% AUC), no GNN in this study was able
+  to improve results meaningfully, regardless of homophily.
+  Feature quality is the gating factor.
+</div>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Part 11 — How To Use GUS on a New Dataset (End to End)</h2>
+
+<p>
+  If you have a new fraud detection dataset and want to use the GUS framework:
+</p>
+
+<h3>Step 1 — Compute Feature Predictiveness</h3>
+<pre>
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score
+
+rf = RandomForestClassifier(n_estimators=100, class_weight='balanced')
+rf.fit(X_train, y_train)
+feature_pred = roc_auc_score(y_test, rf.predict_proba(X_test)[:, 1])
+
+print(f"Feature Predictiveness: {feature_pred:.4f}")
+# If > 0.95 -> stop here. Use XGBoost. You are done.
+</pre>
+
+<h3>Step 2 — Build the graph and compute Fraud Homophily</h3>
+<pre>
+# Build graph: connect transactions that share an entity
+# (same IP, same user, same device, same card, whatever makes sense for your domain)
+
+from sklearn.neighbors import NearestNeighbors
+import numpy as np
+
+nn = NearestNeighbors(n_neighbors=10)
+nn.fit(X_scaled)
+_, indices = nn.kneighbors(X_scaled)
+
+src = np.repeat(np.arange(len(X_scaled)), 10)
+dst = indices[:, 1:].flatten()
+
+# Compute homophily
+same_label = (y[src] == y[dst]).mean()
+print(f"Fraud Homophily: {same_label:.4f}")
+# If < 0.5 -> graph structure may not help GNN
+</pre>
+
+<h3>Step 3 — Estimate Effective Graph Utility</h3>
+<pre>
+# Quick estimate using the formula from GUS
+predicted_auc = 0.611 * feature_pred + (-0.038) * fraud_homo + 0.076 * fraud_rate + 0.398
+
+# Rough graph_utility estimate (requires some domain knowledge or a quick GNN run)
+# For a first pass, you can use: graph_utility ~ fraud_homo * 0.2 (rough heuristic)
+
+effective_gu = graph_utility * (1 - xgb_auc)
+print(f"Effective Graph Utility: {effective_gu:.4f}")
+
+if effective_gu > 0.01:
+    print("RECOMMENDATION: Use a GNN (TH-GFD)")
+else:
+    print("RECOMMENDATION: Use XGBoost — graph adds little value")
+</pre>
+
+<h3>Step 4 — If GNN is recommended, run TH-GFD</h3>
+<pre>
+# python run_experiment.py --data_path your_data.csv --label_ratio 0.05
+
+# Or directly:
+from data.graph_builder import TemporalHeteroGraphBuilder
+from models.thgfd import THGFD, create_model
+from experiments.train_thgfd import THGFDTrainer
+
+# 1. Build the graph
+builder = TemporalHeteroGraphBuilder(
+    entity_columns=['importer_id', 'country', 'agent_id'],
+    numerical_columns=['amount', 'weight', 'tax']
+)
+data = builder.build(df)
+
+# 2. Create model
+model = create_model(data, config)
+
+# 3. Train (phase 1: pretrain, phase 2: finetune)
+trainer = THGFDTrainer(model, device='cpu')
+trainer.pretrain(data, epochs=100)
+trainer.finetune(data, epochs=200, label_ratio=0.05)
+
+# 4. Get predictions
+fraud_logits, revenue_pred = model(data)
+fraud_proba = torch.sigmoid(fraud_logits)
+</pre>
+
+<h3>Step 5 — Evaluate and compare</h3>
+<pre>
+# python fdb_experiments.py --dataset your_dataset_name
+
+# Metrics computed automatically:
+# AUC, AP, Best_F1
+# P@1%, P@5%, P@10%
+# R@1%, R@5%, R@10%
+# Lift@1%, Lift@5%, Lift@10%
+# NDCG
+
+# Compare GNN results vs XGBoost baseline
+# If GNN_AUC - XGB_AUC > 0.01 -> the GNN recommendation was correct
+</pre>
+
+<hr>
+
+<!-- ============================================================ -->
+<h2>Summary of the Entire Framework</h2>
+
+<div class="diagram">
+GUS FRAMEWORK — COMPLETE FLOW
+
+ NEW DATASET
+     |
+     v
+[Step 1: Measure Feature Predictiveness]
+  Train simple RF/LR on raw features only
+  Measure AUC = feature_pred
+     |
+     |--- feature_pred > 0.95? ---YES---> USE XGBOOST. DONE.
+     |
+    NO
+     v
+[Step 2: Build Graph, Measure Fraud Homophily]
+  Connect transactions that share entities
+  Measure fraction of edges between same-label nodes = fraud_homo
+     |
+[Step 3: Compute Effective Graph Utility]
+  Train XGBoost baseline -> xgb_auc
+  EGU = graph_utility * (1 - xgb_auc)
+     |
+     |--- EGU > 0.01? ---NO---> USE XGBOOST.
+     |
+    YES
+     v
+[Step 4: Build Heterogeneous Graph for TH-GFD]
+  transaction nodes (with features)
+  entity nodes (importer, declarant, office, country)
+  edges with timestamps
+     |
+     v
+[Step 5: Phase 1 — Self-Supervised Pre-training]
+  No labels needed
+  Augment graph two ways (temporal + relation dropout)
+  Contrastive loss: same tx, different views -> similar embedding
+  Run for ~100 epochs
+     |
+     v
+[Step 6: Phase 2 — Semi-Supervised Fine-tuning]
+  Use the small set of labeled transactions (1-10% of data)
+  Supervised fraud loss on labeled data
+  Revenue prediction loss on labeled data
+  Pseudo-label loss on high-confidence unlabeled data
+  Curriculum: threshold 0.95 -> 0.70 over training
+  Run for ~200 epochs
+     |
+     v
+[Step 7: Predict and Evaluate]
+  fraud_proba = sigmoid(classifier(tx_embedding))
+  revenue_pred = revenue_head(tx_embedding)
+  Rank all transactions by fraud_proba
+  Evaluate: AUC, P@K%, R@K%, Lift@K%
+     |
+     v
+[Step 8: Compute Actual Improvement]
+  GNN_AUC vs XGB_AUC
+  Record: Graph_Utility, Effective_GU, actual improvement
+  Add to the framework's growing knowledge base
+  Refine the EGU > 0.01 threshold if needed
+</div>
+
+<p>
+  The GUS framework is both a tool (use it to decide which model to build)
+  and a research contribution (it proves, with data across 12 datasets,
+  that Effective Graph Utility is a statistically significant predictor
+  of GNN benefit over tabular models in fraud detection).
+</p>
+
+</body>
+</html>

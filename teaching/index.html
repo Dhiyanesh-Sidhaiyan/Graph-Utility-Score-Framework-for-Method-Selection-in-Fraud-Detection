@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GUS Framework — Graph Utility Scoring</title>
+<style>
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0b0d14;
+  --bg2: #111420;
+  --bg3: #181c2e;
+  --card: #1a1f35;
+  --card2: #202540;
+  --border: #2a2f4a;
+  --border2: #353a60;
+  --accent: #6c63ff;
+  --accent2: #a78bfa;
+  --teal: #22d3ee;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --glow: rgba(108,99,255,0.25);
+}
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; overflow-x: hidden; }
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+/* ─── NAV ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(11,13,20,0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem; height: 60px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nav-brand { font-weight: 700; font-size: 1rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
+.nav-brand span { background: linear-gradient(135deg, var(--accent), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.nav-links { display: flex; gap: 1.5rem; list-style: none; }
+.nav-links a { color: var(--text2); text-decoration: none; font-size: 0.85rem; transition: color 0.2s; }
+.nav-links a:hover, .nav-links a.active { color: var(--accent2); }
+.nav-badge { background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700; padding: 2px 7px; border-radius: 99px; letter-spacing: 0.05em; }
+
+/* ─── SECTIONS ─── */
+section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+.section-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent2); margin-bottom: 0.75rem; }
+h2.section-title { font-size: clamp(1.6rem, 3vw, 2.2rem); font-weight: 800; color: var(--text); margin-bottom: 0.5rem; }
+.section-sub { color: var(--text2); max-width: 600px; margin-bottom: 3rem; font-size: 0.95rem; }
+
+/* ─── HERO ─── */
+.hero-wrap { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 6rem 2rem 4rem; position: relative; overflow: hidden; }
+.hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(108,99,255,0.15) 0%, transparent 70%); pointer-events: none; }
+.hero-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(108,99,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.05) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; }
+.hero-eyebrow { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--card); border: 1px solid var(--border2); border-radius: 99px; padding: 5px 14px; font-size: 0.78rem; color: var(--text2); margin-bottom: 2rem; }
+.hero-eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:0.5; transform:scale(1.3); } }
+.hero-title { font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 900; line-height: 1.05; letter-spacing: -1px; margin-bottom: 1.5rem; }
+.hero-title .grad { background: linear-gradient(135deg, var(--accent2), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.hero-sub { font-size: 1.1rem; color: var(--text2); max-width: 600px; margin: 0 auto 2.5rem; line-height: 1.7; }
+.hero-cta { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: 4rem; }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; text-decoration: none; transition: all 0.2s; }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 0 24px var(--glow); }
+.btn-primary:hover { background: var(--accent2); transform: translateY(-2px); }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border2); }
+.btn-outline:hover { border-color: var(--accent2); color: var(--accent2); }
+.hero-stats { display: flex; gap: 3rem; justify-content: center; flex-wrap: wrap; }
+.h-stat { text-align: center; }
+.h-stat-num { font-size: 2rem; font-weight: 800; color: var(--accent2); }
+.h-stat-label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* ─── PROBLEM STRIP ─── */
+.problem-strip { background: var(--bg2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 3rem 2rem; }
+.problem-strip-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 60px 1fr; align-items: center; gap: 1.5rem; }
+.problem-box { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 1.75rem; }
+.problem-box.bad { border-left: 4px solid var(--red); }
+.problem-box.good { border-left: 4px solid var(--green); }
+.problem-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+.problem-tag.bad { color: var(--red); }
+.problem-tag.good { color: var(--green); }
+.problem-box h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem; }
+.problem-box p { font-size: 0.85rem; color: var(--text2); }
+.vs-arrow { text-align: center; font-size: 1.5rem; color: var(--accent2); font-weight: 900; }
+.timeline { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.tl-item { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.8rem; color: var(--text2); }
+.tl-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.tl-dot.bad { background: var(--red); }
+.tl-dot.good { background: var(--green); }
+
+/* ─── FLOW SECTION ─── */
+.flow-container { position: relative; }
+.flow-steps { display: grid; grid-template-columns: 1fr 40px 1fr 40px 1fr; align-items: start; gap: 0; }
+.flow-step { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; position: relative; cursor: pointer; transition: all 0.3s; }
+.flow-step:hover, .flow-step.active { border-color: var(--accent); box-shadow: 0 0 30px rgba(108,99,255,0.2); transform: translateY(-3px); }
+.flow-step-num { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; margin-bottom: 1rem; }
+.flow-step h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
+.flow-step p { font-size: 0.82rem; color: var(--text2); margin-bottom: 1rem; }
+.flow-metric { background: var(--bg2); border-radius: 8px; padding: 0.6rem 0.75rem; }
+.flow-metric .label { font-size: 0.7rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; }
+.flow-metric .value { font-size: 1.1rem; font-weight: 700; color: var(--accent2); }
+.flow-arrow { display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: var(--border2); padding-top: 3.5rem; }
+.flow-detail { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; margin-top: 1.5rem; display: none; }
+.flow-detail.show { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+.code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.8rem; color: #a5f3fc; overflow-x: auto; margin-top: 1rem; line-height: 1.8; }
+.code-block .comment { color: #64748b; }
+.code-block .keyword { color: var(--accent2); }
+.code-block .string { color: var(--green); }
+.code-block .number { color: var(--amber); }
+
+/* ─── EGU CALCULATOR ─── */
+.calc-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; }
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; align-items: start; }
+.calc-inputs { display: flex; flex-direction: column; gap: 1.5rem; }
+.slider-group label { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 600; }
+.slider-group label span { color: var(--accent2); font-weight: 700; }
+input[type=range] { width: 100%; -webkit-appearance: none; height: 6px; border-radius: 3px; background: var(--border2); outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--accent); cursor: pointer; box-shadow: 0 0 8px var(--glow); }
+.hint { font-size: 0.75rem; color: var(--text3); margin-top: 0.3rem; }
+.calc-result { background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 1.75rem; }
+.result-egu { text-align: center; margin-bottom: 1.5rem; }
+.result-egu .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 0.25rem; }
+.result-egu .num { font-size: 3rem; font-weight: 900; transition: all 0.3s; }
+.result-verdict { border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; text-align: center; transition: all 0.3s; }
+.result-verdict h4 { font-size: 1rem; font-weight: 700; }
+.result-verdict p { font-size: 0.82rem; margin-top: 0.3rem; }
+.verdict-gnn { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: var(--green); }
+.verdict-xgb { background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.3); color: var(--red); }
+.verdict-toss { background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3); color: var(--amber); }
+.breakdown-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+.breakdown-row:last-child { border-bottom: none; }
+.breakdown-row .k { color: var(--text2); }
+.breakdown-row .v { font-weight: 700; }
+.mini-gauge { height: 8px; background: var(--bg2); border-radius: 4px; overflow: hidden; margin-top: 0.4rem; }
+.mini-gauge-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+
+/* ─── HOMOPHILY DEMO ─── */
+.homo-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+.homo-canvas-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; }
+.homo-canvas-wrap h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+canvas#homoCanvas { width: 100%; border-radius: 8px; background: var(--bg); display: block; }
+.homo-controls { display: flex; flex-direction: column; gap: 1.25rem; }
+.homo-score-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; }
+.homo-score-card h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1.25rem; }
+.score-display { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.score-big { font-size: 2.5rem; font-weight: 900; }
+.score-label { font-size: 0.8rem; color: var(--text2); }
+.score-bar { height: 10px; background: var(--bg2); border-radius: 5px; overflow: hidden; }
+.score-bar-fill { height: 100%; border-radius: 5px; transition: width 0.4s; }
+.homo-legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.78rem; }
+.legend-item { display: flex; align-items: center; gap: 0.4rem; color: var(--text2); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.homo-slider-group { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; }
+.homo-slider-group h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 1.25rem; }
+.mode-btns { display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.mode-btn { padding: 0.4rem 0.9rem; border-radius: 8px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 0.78rem; cursor: pointer; transition: all 0.2s; }
+.mode-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mode-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+/* ─── DATASETS TABLE ─── */
+.dataset-filter { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.filter-btn { padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid var(--border2); background: transparent; color: var(--text2); font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.datasets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.dataset-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.25rem; transition: all 0.25s; cursor: pointer; }
+.dataset-card:hover { border-color: var(--border2); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.dataset-card.winner-gnn { border-left: 4px solid var(--green); }
+.dataset-card.winner-xgb { border-left: 4px solid var(--red); }
+.dataset-card.winner-mixed { border-left: 4px solid var(--amber); }
+.ds-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.ds-name { font-weight: 700; font-size: 0.9rem; }
+.ds-domain { font-size: 0.7rem; color: var(--text3); margin-top: 2px; }
+.ds-badge { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 3px 8px; border-radius: 99px; }
+.badge-gnn { background: rgba(52,211,153,0.15); color: var(--green); }
+.badge-xgb { background: rgba(248,113,113,0.15); color: var(--red); }
+.badge-mixed { background: rgba(251,191,36,0.15); color: var(--amber); }
+.ds-metrics { display: flex; flex-direction: column; gap: 0.5rem; }
+.ds-metric-row { display: flex; align-items: center; gap: 0.5rem; }
+.ds-metric-label { font-size: 0.72rem; color: var(--text3); width: 80px; flex-shrink: 0; }
+.ds-metric-bar { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+.ds-metric-bar-fill { height: 100%; border-radius: 3px; }
+.ds-metric-val { font-size: 0.72rem; font-weight: 600; width: 38px; text-align: right; }
+.ds-egu { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.ds-egu-label { font-size: 0.72rem; color: var(--text3); }
+.ds-egu-val { font-size: 0.85rem; font-weight: 700; }
+
+/* ─── AUC FORMULA ─── */
+.formula-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: start; }
+.formula-box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; }
+.formula-display { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; font-family: monospace; font-size: 0.9rem; line-height: 2.2; }
+.formula-term { display: flex; gap: 0.5rem; align-items: center; }
+.formula-coef { color: var(--amber); font-weight: 700; }
+.formula-var { color: var(--teal); }
+.formula-op { color: var(--text3); }
+.formula-intercept { color: var(--accent2); }
+.formula-inputs { display: flex; flex-direction: column; gap: 1.25rem; }
+.auc-result-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-top: 1.25rem; text-align: center; }
+.auc-result-label { font-size: 0.75rem; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; }
+.auc-result-num { font-size: 2.5rem; font-weight: 900; color: var(--accent2); }
+.auc-r2 { font-size: 0.75rem; color: var(--text3); margin-top: 0.25rem; }
+
+/* ─── METRICS SECTION ─── */
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+.metric-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; transition: all 0.2s; }
+.metric-card:hover { border-color: var(--accent); }
+.metric-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+.metric-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem; }
+.metric-def { font-size: 0.8rem; color: var(--text2); margin-bottom: 0.75rem; }
+.metric-when { font-size: 0.75rem; color: var(--text3); border-top: 1px solid var(--border); padding-top: 0.6rem; margin-top: auto; }
+
+/* ─── DECISION SUMMARY ─── */
+.decision-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 2.5rem; position: relative; overflow: hidden; }
+.decision-wrap::before { content: ''; position: absolute; top: -80px; right: -80px; width: 300px; height: 300px; background: radial-gradient(circle, rgba(108,99,255,0.15), transparent 70%); pointer-events: none; }
+.decision-rule { display: flex; gap: 1.5rem; margin-top: 2rem; flex-wrap: wrap; }
+.decision-card { flex: 1; min-width: 200px; border-radius: 14px; padding: 1.5rem; }
+.decision-card.gnn { background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25); }
+.decision-card.xgb { background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.25); }
+.decision-card .emoji { font-size: 2rem; margin-bottom: 0.75rem; }
+.decision-card h4 { font-size: 1rem; font-weight: 700; margin-bottom: 0.4rem; }
+.decision-card .condition { font-size: 0.8rem; font-family: monospace; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.6rem; margin-bottom: 0.75rem; display: inline-block; }
+.decision-card .gnn { color: var(--green); }
+.decision-card .xgb { color: var(--red); }
+.decision-card p { font-size: 0.82rem; color: var(--text2); }
+.accuracy-display { margin-top: 2rem; background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+.acc-big { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, var(--accent2), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.acc-detail { flex: 1; min-width: 200px; }
+.acc-detail p { font-size: 0.85rem; color: var(--text2); margin-bottom: 0.5rem; }
+.acc-bar { height: 10px; background: var(--bg2); border-radius: 5px; overflow: hidden; }
+.acc-bar-fill { height: 100%; width: 75%; background: linear-gradient(90deg, var(--accent), var(--teal)); border-radius: 5px; }
+
+/* ─── FOOTER ─── */
+footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--text3); font-size: 0.82rem; }
+footer a { color: var(--accent2); text-decoration: none; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .flow-steps { grid-template-columns: 1fr; }
+  .flow-arrow { transform: rotate(90deg); padding: 0; }
+  .calc-grid { grid-template-columns: 1fr; }
+  .homo-wrap { grid-template-columns: 1fr; }
+  .formula-wrap { grid-template-columns: 1fr; }
+  .problem-strip-inner { grid-template-columns: 1fr; }
+  .vs-arrow { transform: rotate(90deg); }
+}
+
+/* ─── ANIMATIONS ─── */
+.fade-up { opacity: 0; transform: translateY(20px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.fade-up.visible { opacity: 1; transform: translateY(0); }
+
+/* ─── TOOLTIP ─── */
+.tooltip { position: relative; display: inline-block; border-bottom: 1px dashed var(--border2); cursor: help; }
+.tooltip::after { content: attr(data-tip); position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); background: var(--card2); color: var(--text); font-size: 0.75rem; padding: 0.4rem 0.75rem; border-radius: 6px; white-space: nowrap; border: 1px solid var(--border2); opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 50; }
+.tooltip:hover::after { opacity: 1; }
+
+/* ─── TABS ─── */
+.tab-list { display: flex; gap: 0.25rem; background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 4px; width: fit-content; margin-bottom: 1.5rem; }
+.tab-btn { padding: 0.45rem 1rem; border-radius: 9px; border: none; background: transparent; color: var(--text2); font-size: 0.82rem; cursor: pointer; transition: all 0.2s; }
+.tab-btn.active { background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; animation: fadeIn 0.25s ease; }
+</style>
+</head>
+<body>
+
+<!-- ─── NAV ─── -->
+<nav>
+  <div class="nav-brand">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><circle cx="11" cy="11" r="3" fill="currentColor" opacity="0.3"/></svg>
+    <span>GUS</span> Framework
+  </div>
+  <ul class="nav-links">
+    <li><a href="#problem">Problem</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#calculator">Calculator</a></li>
+    <li><a href="#homophily">Homophily</a></li>
+    <li><a href="#datasets">Datasets</a></li>
+    <li><a href="#decision">Decision Rule</a></li>
+    <li><span class="nav-badge">Research</span></li>
+  </ul>
+</nav>
+
+<!-- ─── HERO ─── -->
+<div class="hero-wrap" id="top">
+  <div class="hero-bg"></div>
+  <div class="hero-grid"></div>
+  <div class="hero-eyebrow">
+    <span class="dot"></span>
+    Graph Utility Scoring Framework · Validated on 12 Datasets
+  </div>
+  <h1 class="hero-title">
+    Should you build<br>
+    a <span class="grad">Graph Neural</span><br>
+    <span class="grad">Network</span>?
+  </h1>
+  <p class="hero-sub">
+    GUS gives you a data-driven answer in under an hour — before you spend weeks building a GNN pipeline that XGBoost could replace.
+  </p>
+  <div class="hero-cta">
+    <a href="#how" class="btn btn-primary">See How It Works →</a>
+    <a href="#calculator" class="btn btn-outline">Try the Calculator</a>
+  </div>
+  <div class="hero-stats">
+    <div class="h-stat"><div class="h-stat-num" id="stat-datasets">0</div><div class="h-stat-label">Datasets Tested</div></div>
+    <div class="h-stat"><div class="h-stat-num" id="stat-accuracy">0%</div><div class="h-stat-label">Decision Accuracy</div></div>
+    <div class="h-stat"><div class="h-stat-num" id="stat-corr">0</div><div class="h-stat-label">EGU Correlation (r)</div></div>
+    <div class="h-stat"><div class="h-stat-num" id="stat-r2">0</div><div class="h-stat-label">AUC Prediction R²</div></div>
+  </div>
+</div>
+
+<!-- ─── PROBLEM STRIP ─── -->
+<div class="problem-strip" id="problem">
+  <div class="problem-strip-inner">
+    <div class="problem-box bad">
+      <div class="problem-tag bad">❌ Without GUS</div>
+      <h4>Weeks of wasted effort</h4>
+      <div class="timeline">
+        <div class="tl-item"><div class="tl-dot bad"></div><span>Week 1–2: Build graph construction pipeline</span></div>
+        <div class="tl-item"><div class="tl-dot bad"></div><span>Week 3–4: Design & train the GNN model</span></div>
+        <div class="tl-item"><div class="tl-dot bad"></div><span>Week 5: Evaluate results</span></div>
+        <div class="tl-item"><div class="tl-dot bad"></div><span>Discover XGBoost AUC = 0.97, GNN AUC = 0.97</span></div>
+        <div class="tl-item"><div class="tl-dot bad"></div><span style="color:var(--red); font-weight:600">Wasted 5 weeks. Ship XGBoost anyway.</span></div>
+      </div>
+    </div>
+    <div class="vs-arrow">→</div>
+    <div class="problem-box good">
+      <div class="problem-tag good">✓ With GUS</div>
+      <h4>Know before you build</h4>
+      <div class="timeline">
+        <div class="tl-item"><div class="tl-dot good"></div><span>Hour 1: Compute Feature Predictiveness (RF AUC)</span></div>
+        <div class="tl-item"><div class="tl-dot good"></div><span>Hour 2: Measure Fraud Homophily (graph structure)</span></div>
+        <div class="tl-item"><div class="tl-dot good"></div><span>Hour 3: Calculate Effective Graph Utility (EGU)</span></div>
+        <div class="tl-item"><div class="tl-dot good"></div><span style="color:var(--green); font-weight:600">Decision: GNN or XGBoost. Ship the right model.</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── HOW IT WORKS ─── -->
+<section id="how">
+  <div class="section-label">Core Methodology</div>
+  <h2 class="section-title">How GUS Works</h2>
+  <p class="section-sub">Three measurements on your dataset, made before training any model, reveal whether a GNN will beat XGBoost.</p>
+
+  <div class="flow-steps">
+    <div class="flow-step active" id="step1" onclick="showStep(1)">
+      <div class="flow-step-num">1</div>
+      <h3>Feature Predictiveness</h3>
+      <p>Train a Random Forest on raw features only. Measure AUC. How much can features alone predict fraud?</p>
+      <div class="flow-metric">
+        <div class="label">Formula</div>
+        <div class="value" style="font-size:0.85rem; font-family:monospace">AUC(RF, features)</div>
+      </div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" id="step2" onclick="showStep(2)">
+      <div class="flow-step-num">2</div>
+      <h3>Fraud Homophily</h3>
+      <p>Build a graph from entity relationships. What fraction of edges connect same-label nodes?</p>
+      <div class="flow-metric">
+        <div class="label">Formula</div>
+        <div class="value" style="font-size:0.85rem; font-family:monospace">edges(same label) / total edges</div>
+      </div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step" id="step3" onclick="showStep(3)">
+      <div class="flow-step-num">3</div>
+      <h3>Effective Graph Utility</h3>
+      <p>Combine graph utility with improvement headroom. This is the single deciding metric.</p>
+      <div class="flow-metric">
+        <div class="label">Formula</div>
+        <div class="value" style="font-size:0.85rem; font-family:monospace">GU × (1 − XGB_AUC)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-detail show" id="detail1">
+    <h4 style="margin-bottom:0.75rem; color:var(--accent2)">Step 1 — Feature Predictiveness in Detail</h4>
+    <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.75rem">Train the simplest possible model using only tabular features — no graph at all. If features already nail 95% AUC, the graph structure has nothing left to add. This step alone can save you weeks.</p>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem">
+      <div style="flex:1; min-width:180px; background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:10px; padding:0.75rem; font-size:0.8rem">
+        <div style="color:var(--red); font-weight:700; margin-bottom:0.3rem">FP &gt; 0.95</div>
+        Features nearly perfect → Stop here. Use XGBoost.
+      </div>
+      <div style="flex:1; min-width:180px; background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); border-radius:10px; padding:0.75rem; font-size:0.8rem">
+        <div style="color:var(--amber); font-weight:700; margin-bottom:0.3rem">FP 0.70 – 0.95</div>
+        Features moderate → Proceed to Step 2.
+      </div>
+      <div style="flex:1; min-width:180px; background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.2); border-radius:10px; padding:0.75rem; font-size:0.8rem">
+        <div style="color:var(--green); font-weight:700; margin-bottom:0.3rem">FP &lt; 0.70</div>
+        Features weak → Graph may help. Proceed.
+      </div>
+    </div>
+    <div class="code-block"><span class="comment"># From analyze_datasets.py</span>
+<span class="keyword">from</span> sklearn.ensemble <span class="keyword">import</span> RandomForestClassifier
+<span class="keyword">from</span> sklearn.metrics <span class="keyword">import</span> roc_auc_score
+
+rf = RandomForestClassifier(n_estimators=<span class="number">100</span>, class_weight=<span class="string">'balanced'</span>)
+rf.fit(X_train, y_train)
+feature_pred = roc_auc_score(y_test, rf.predict_proba(X_test)[:, <span class="number">1</span>])
+
+<span class="comment"># Real values from experiments:</span>
+<span class="comment"># Credit Card:  0.974  →  Stop. XGBoost wins.</span>
+<span class="comment"># Ecommerce:    0.751  →  Proceed to Step 2.</span>
+<span class="comment"># Vehicle Loan: 0.631  →  Proceed to Step 2.</span></div>
+  </div>
+
+  <div class="flow-detail" id="detail2">
+    <h4 style="margin-bottom:0.75rem; color:var(--accent2)">Step 2 — Fraud Homophily in Detail</h4>
+    <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.75rem">Build a graph by connecting transactions that share an entity (same IP, same user, same device). Then measure: do fraudsters cluster with other fraudsters? Message passing only helps if they do — otherwise it averages the fraud signal away.</p>
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1rem">
+      <div style="flex:1; min-width:180px; background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.2); border-radius:10px; padding:0.75rem; font-size:0.8rem">
+        <div style="color:var(--green); font-weight:700; margin-bottom:0.3rem">FH &gt; 0.5</div>
+        Fraud clusters together → GNN message passing amplifies signal.
+      </div>
+      <div style="flex:1; min-width:180px; background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:10px; padding:0.75rem; font-size:0.8rem">
+        <div style="color:var(--red); font-weight:700; margin-bottom:0.3rem">FH &lt; 0.5</div>
+        Fraud is scattered → Message passing destroys signal.
+      </div>
+    </div>
+    <div class="code-block"><span class="comment"># From analyze_datasets.py — compute_homophily()</span>
+<span class="keyword">def</span> compute_homophily(edge_index, y):
+    src = edge_index[<span class="number">0</span>]
+    dst = edge_index[<span class="number">1</span>]
+    <span class="comment"># Fraction of edges between same-label nodes</span>
+    same_label = (y[src] == y[dst]).float().mean()
+    <span class="keyword">return</span> same_label.item()
+
+<span class="comment"># Real values:</span>
+<span class="comment"># IP Blocklist:  0.777  →  Strong fraud clustering</span>
+<span class="comment"># Ecommerce:     0.734  →  Good clustering</span>
+<span class="comment"># Credit Card:   0.041  →  Fraud nearly isolated — GNN won't help</span></div>
+  </div>
+
+  <div class="flow-detail" id="detail3">
+    <h4 style="margin-bottom:0.75rem; color:var(--accent2)">Step 3 — Effective Graph Utility in Detail</h4>
+    <p style="font-size:0.85rem; color:var(--text2); margin-bottom:0.75rem">Raw Graph Utility (GNN AUC − XGB AUC) is misleading. If XGBoost already scores 0.9997, there's no room for improvement — EGU = near zero regardless. Effective Graph Utility corrects for this by scaling by improvement headroom.</p>
+    <div style="background:rgba(108,99,255,0.08); border:1px solid rgba(108,99,255,0.2); border-radius:10px; padding:1rem; margin-bottom:1rem; font-family:monospace; font-size:0.85rem">
+      <div style="color:var(--accent2); margin-bottom:0.5rem">EGU = Graph_Utility × (1 − XGB_AUC)</div>
+      <div style="color:var(--text3); font-size:0.78rem">Where: Graph_Utility = Adjusted_Homophily × (1 − Feature_Predictiveness)</div>
+    </div>
+    <div class="code-block"><span class="comment"># From complete_gnn_experiments.py — DatasetSpec</span>
+@property
+<span class="keyword">def</span> effective_gu(self) -> float:
+    <span class="keyword">return</span> self.graph_utility * (<span class="number">1</span> - self.xgb_auc)
+
+<span class="comment"># The key insight:</span>
+<span class="comment"># Customs: GU=0.11, XGB=0.9997  → EGU = 0.000033  → XGBoost wins</span>
+<span class="comment"># IP Bloc: GU=0.29, XGB=0.9116  → EGU = 0.0256    → GNN wins</span>
+<span class="comment"># Ecomm:   GU=0.06, XGB=0.7808  → EGU = 0.0132    → GNN wins</span>
+
+<span class="keyword">if</span> self.effective_gu > <span class="number">0.01</span>:
+    <span class="keyword">return</span> <span class="string">"RECOMMEND: Build the GNN"</span>
+<span class="keyword">else</span>:
+    <span class="keyword">return</span> <span class="string">"RECOMMEND: Use XGBoost"</span></div>
+  </div>
+</section>
+
+<!-- ─── EGU CALCULATOR ─── -->
+<section id="calculator" style="background:var(--bg2); max-width:100%; padding-left:0; padding-right:0">
+<div style="max-width:1100px; margin:0 auto; padding:5rem 2rem">
+  <div class="section-label">Interactive Tool</div>
+  <h2 class="section-title">EGU Calculator</h2>
+  <p class="section-sub">Drag the sliders to see how Feature Predictiveness, Fraud Homophily, and XGBoost AUC affect the GUS recommendation in real time.</p>
+
+  <div class="calc-wrap">
+    <div class="calc-grid">
+      <div class="calc-inputs">
+        <div class="slider-group">
+          <label>Feature Predictiveness <span id="fp-val">0.75</span></label>
+          <input type="range" id="fp-slider" min="50" max="100" value="75" oninput="updateCalc()">
+          <div class="hint">AUC of Random Forest on raw features only (0.50 = random, 1.00 = perfect)</div>
+        </div>
+        <div class="slider-group">
+          <label>Fraud Homophily <span id="fh-val">0.45</span></label>
+          <input type="range" id="fh-slider" min="0" max="100" value="45" oninput="updateCalc()">
+          <div class="hint">Fraction of edges between same-label nodes (0 = heterophily, 1 = full clustering)</div>
+        </div>
+        <div class="slider-group">
+          <label>XGBoost Baseline AUC <span id="xgb-val">0.82</span></label>
+          <input type="range" id="xgb-slider" min="50" max="100" value="82" oninput="updateCalc()">
+          <div class="hint">Best tabular model AUC — determines remaining improvement headroom</div>
+        </div>
+        <div class="slider-group">
+          <label>Fraud Rate <span id="fr-val">5%</span></label>
+          <input type="range" id="fr-slider" min="1" max="30" value="5" oninput="updateCalc()">
+          <div class="hint">Percentage of transactions that are fraudulent</div>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem">
+          <button class="btn btn-outline" style="font-size:0.78rem; padding:0.4rem 0.75rem" onclick="loadPreset('ip')">IP Blocklist</button>
+          <button class="btn btn-outline" style="font-size:0.78rem; padding:0.4rem 0.75rem" onclick="loadPreset('ecom')">Ecommerce</button>
+          <button class="btn btn-outline" style="font-size:0.78rem; padding:0.4rem 0.75rem" onclick="loadPreset('cc')">Credit Card</button>
+          <button class="btn btn-outline" style="font-size:0.78rem; padding:0.4rem 0.75rem" onclick="loadPreset('customs')">Customs</button>
+          <button class="btn btn-outline" style="font-size:0.78rem; padding:0.4rem 0.75rem" onclick="loadPreset('vehicle')">Vehicle Loan</button>
+        </div>
+      </div>
+
+      <div class="calc-result">
+        <div class="result-egu">
+          <div class="label">Effective Graph Utility (EGU)</div>
+          <div class="num" id="egu-display" style="color:var(--amber)">0.0132</div>
+        </div>
+        <div class="result-verdict verdict-gnn" id="verdict-box">
+          <h4 id="verdict-title">✓ Recommend: Build the GNN</h4>
+          <p id="verdict-desc">EGU &gt; 0.01 — graph structure adds meaningful value beyond features.</p>
+        </div>
+
+        <div class="breakdown-row">
+          <span class="k">Adjusted Homophily</span>
+          <div style="flex:1; margin:0 0.75rem">
+            <div class="mini-gauge"><div class="mini-gauge-fill" id="adj-h-bar" style="background:var(--teal); width:45%"></div></div>
+          </div>
+          <span class="v" id="adj-h-val" style="color:var(--teal)">0.45</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="k">Graph Utility (raw)</span>
+          <div style="flex:1; margin:0 0.75rem">
+            <div class="mini-gauge"><div class="mini-gauge-fill" id="gu-bar" style="background:var(--accent2); width:11%"></div></div>
+          </div>
+          <span class="v" id="gu-val" style="color:var(--accent2)">0.11</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="k">Improvement Headroom</span>
+          <div style="flex:1; margin:0 0.75rem">
+            <div class="mini-gauge"><div class="mini-gauge-fill" id="headroom-bar" style="background:var(--green); width:18%"></div></div>
+          </div>
+          <span class="v" id="headroom-val" style="color:var(--green)">0.18</span>
+        </div>
+        <div class="breakdown-row">
+          <span class="k">Predicted AUC (formula)</span>
+          <div style="flex:1; margin:0 0.75rem">
+            <div class="mini-gauge"><div class="mini-gauge-fill" id="pauc-bar" style="background:var(--amber); width:82%"></div></div>
+          </div>
+          <span class="v" id="pauc-val" style="color:var(--amber)">0.82</span>
+        </div>
+
+        <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); font-size:0.75rem; color:var(--text3)">
+          Threshold: EGU &gt; 0.01 → GNN &nbsp;|&nbsp; EGU ≤ 0.01 → XGBoost
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ─── HOMOPHILY VISUALIZER ─── -->
+<section id="homophily">
+  <div class="section-label">Visual Explainer</div>
+  <h2 class="section-title">Fraud Homophily Visualized</h2>
+  <p class="section-sub">Watch how fraud node clustering changes message passing in a GNN. High homophily = fraud signal propagates. Low homophily = signal gets washed out.</p>
+
+  <div class="homo-wrap">
+    <div>
+      <div class="homo-canvas-wrap">
+        <h4>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Graph Structure
+          <span id="graph-mode-label" style="font-size:0.75rem; color:var(--text3); font-weight:400; margin-left:auto">High Homophily</span>
+        </h4>
+        <canvas id="homoCanvas" width="400" height="340"></canvas>
+      </div>
+    </div>
+
+    <div class="homo-controls">
+      <div class="homo-score-card">
+        <h4>Homophily Score</h4>
+        <div class="score-display">
+          <div class="score-big" id="homo-score" style="color:var(--green)">0.78</div>
+          <div class="score-label">fraction of edges between<br>same-label nodes</div>
+        </div>
+        <div class="score-bar"><div class="score-bar-fill" id="homo-score-bar" style="width:78%; background:var(--green)"></div></div>
+        <div class="homo-legend" style="margin-top:0.75rem">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Fraud node</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--teal)"></div>Legit node</div>
+          <div class="legend-item" style="font-size:0.72rem; color:var(--text3)">— Same class edge &nbsp; ⋯ Cross class edge</div>
+        </div>
+      </div>
+
+      <div class="homo-slider-group">
+        <h4>Explore Scenarios</h4>
+        <div class="mode-btns">
+          <button class="mode-btn active" onclick="setGraphMode('high')">High Homophily</button>
+          <button class="mode-btn" onclick="setGraphMode('low')">Low Homophily</button>
+          <button class="mode-btn" onclick="setGraphMode('medium')">Medium</button>
+          <button class="mode-btn" onclick="setGraphMode('ring')">Fraud Ring</button>
+        </div>
+        <div style="margin-top:1.25rem">
+          <div id="homo-interpretation" style="font-size:0.82rem; color:var(--text2); background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:0.75rem; line-height:1.5">
+            <strong style="color:var(--green)">High Homophily:</strong> Fraudsters connect to other fraudsters. A GNN's message passing will propagate the fraud signal strongly — neighboring nodes alert each other. <em>GNNs win here.</em>
+          </div>
+        </div>
+        <div style="margin-top:1rem; font-size:0.78rem; color:var(--text3)">
+          <strong>Why it matters:</strong> GNN message passing averages a node's embedding with its neighbors'. Same-label neighbors amplify signal. Mixed neighbors cancel it.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── DATASETS ─── -->
+<section id="datasets" style="background:var(--bg2); max-width:100%; padding-left:0; padding-right:0">
+<div style="max-width:1100px; margin:0 auto; padding:5rem 2rem">
+  <div class="section-label">Validation</div>
+  <h2 class="section-title">12 Real-World Datasets</h2>
+  <p class="section-sub">GUS was validated across 5 domains. Click any card to see the full breakdown and key insight.</p>
+
+  <div class="dataset-filter">
+    <button class="filter-btn active" onclick="filterDatasets('all')">All (12)</button>
+    <button class="filter-btn" onclick="filterDatasets('gnn')">GNN Wins (3)</button>
+    <button class="filter-btn" onclick="filterDatasets('xgb')">XGBoost Wins (8)</button>
+    <button class="filter-btn" onclick="filterDatasets('mixed')">Mixed (1)</button>
+  </div>
+
+  <div class="datasets-grid" id="datasets-grid"></div>
+
+  <div style="margin-top:2rem; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:1.5rem">
+    <div id="dataset-detail" style="font-size:0.85rem; color:var(--text2)">Click a dataset card above to see detailed analysis.</div>
+  </div>
+</div>
+</section>
+
+<!-- ─── AUC PREDICTION FORMULA ─── -->
+<section id="formula">
+  <div class="section-label">Prediction Model</div>
+  <h2 class="section-title">AUC Prediction Formula</h2>
+  <p class="section-sub">GUS can estimate what AUC your baseline model will achieve — before training anything — using only graph structural properties.</p>
+
+  <div class="formula-wrap">
+    <div class="formula-box">
+      <h4 style="margin-bottom:1rem">The Regression Formula</h4>
+      <div class="formula-display">
+        <div style="color:var(--text3); font-size:0.8rem; margin-bottom:0.5rem">Predicted_AUC =</div>
+        <div class="formula-term"><span class="formula-coef">0.611</span> <span class="formula-op">×</span> <span class="formula-var">Feature_Pred</span></div>
+        <div class="formula-term"><span class="formula-coef">− 0.038</span> <span class="formula-op">×</span> <span class="formula-var">Fraud_Homo</span></div>
+        <div class="formula-term"><span class="formula-coef">+ 0.076</span> <span class="formula-op">×</span> <span class="formula-var">Fraud_Rate</span></div>
+        <div class="formula-term"><span class="formula-op">+</span> <span class="formula-intercept">0.398</span></div>
+        <div style="color:var(--text3); font-size:0.75rem; margin-top:0.75rem">R² = 0.61 &nbsp;|&nbsp; Validated on 12 datasets</div>
+      </div>
+      <div style="margin-top:1.25rem; display:flex; flex-direction:column; gap:0.6rem">
+        <div style="font-size:0.8rem; background:var(--bg2); border-radius:8px; padding:0.6rem 0.75rem">
+          <strong style="color:var(--amber)">0.611 × FP</strong> — <span style="color:var(--text2)">Strongest predictor. Strong features = high AUC baseline.</span>
+        </div>
+        <div style="font-size:0.8rem; background:var(--bg2); border-radius:8px; padding:0.6rem 0.75rem">
+          <strong style="color:var(--red)">−0.038 × FH</strong> — <span style="color:var(--text2)">High homophily slightly lowers baseline: individual features are less discriminative when fraud clusters.</span>
+        </div>
+        <div style="font-size:0.8rem; background:var(--bg2); border-radius:8px; padding:0.6rem 0.75rem">
+          <strong style="color:var(--green)">+0.076 × FR</strong> — <span style="color:var(--text2)">More fraud examples = slightly easier to learn.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="formula-box">
+      <h4 style="margin-bottom:1.25rem">Interactive AUC Estimator</h4>
+      <div class="formula-inputs">
+        <div class="slider-group">
+          <label>Feature Predictiveness <span id="f-fp-val">0.75</span></label>
+          <input type="range" id="f-fp" min="50" max="100" value="75" oninput="updateFormula()">
+        </div>
+        <div class="slider-group">
+          <label>Fraud Homophily <span id="f-fh-val">0.40</span></label>
+          <input type="range" id="f-fh" min="0" max="100" value="40" oninput="updateFormula()">
+        </div>
+        <div class="slider-group">
+          <label>Fraud Rate (%) <span id="f-fr-val">5%</span></label>
+          <input type="range" id="f-fr" min="1" max="30" value="5" oninput="updateFormula()">
+        </div>
+      </div>
+      <div class="auc-result-box">
+        <div class="auc-result-label">Predicted Baseline AUC</div>
+        <div class="auc-result-num" id="f-result">0.848</div>
+        <div class="auc-r2">R² = 0.61 &nbsp;(explains 61% of variance across datasets)</div>
+      </div>
+      <div style="margin-top:1rem; font-size:0.78rem; color:var(--text3); background:var(--bg2); border-radius:8px; padding:0.6rem 0.75rem">
+        This formula gives a quick estimate before running any experiments. Use it to prioritize which datasets to evaluate first.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── METRICS ─── -->
+<section id="metrics" style="background:var(--bg2); max-width:100%; padding-left:0; padding-right:0">
+<div style="max-width:1100px; margin:0 auto; padding:5rem 2rem">
+  <div class="section-label">Evaluation</div>
+  <h2 class="section-title">GUS Evaluation Metrics</h2>
+  <p class="section-sub">Standard accuracy is useless in fraud detection — class imbalance makes it meaningless. GUS uses ranking-based and operational metrics.</p>
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon">📈</div>
+      <div class="metric-name">AUC-ROC</div>
+      <div class="metric-def">P(fraud score &gt; legit score). Primary model selection metric. Threshold-independent.</div>
+      <div class="metric-when">0.5 = random · 1.0 = perfect · Used for all model comparisons</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">🎯</div>
+      <div class="metric-name">Average Precision</div>
+      <div class="metric-def">Area under the Precision-Recall curve. More sensitive than AUC at very low fraud rates.</div>
+      <div class="metric-when">Preferred when fraud rate &lt; 1%. AP ≫ AUC at extreme imbalance.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">🔍</div>
+      <div class="metric-name">Precision@K%</div>
+      <div class="metric-def">Of the top K% flagged transactions, how many are actually fraud?</div>
+      <div class="metric-when">K = 1%, 5%, 10%. Real operational constraint: analysts can only review K% per day.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">🎣</div>
+      <div class="metric-name">Recall@K%</div>
+      <div class="metric-def">Of all true fraud, what fraction is caught in the top K%?</div>
+      <div class="metric-when">Measures detection coverage under budget constraint.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">🚀</div>
+      <div class="metric-name">Lift@K%</div>
+      <div class="metric-def">P@K% ÷ base fraud rate. How much better than random inspection?</div>
+      <div class="metric-when">Lift=10 means top 1% has 10× more fraud than a random 1% would contain.</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-icon">📊</div>
+      <div class="metric-name">NDCG</div>
+      <div class="metric-def">Normalized Discounted Cumulative Gain. Rewards finding fraud at the very top of the ranking list.</div>
+      <div class="metric-when">More credit for catching fraud at rank 1 than at rank 100.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ─── DECISION RULE ─── -->
+<section id="decision">
+  <div class="section-label">Final Decision</div>
+  <h2 class="section-title">The GUS Decision Rule</h2>
+  <p class="section-sub">One threshold. 75% accuracy across 12 datasets. r = 0.64 correlation with actual GNN improvement.</p>
+
+  <div class="decision-wrap">
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2rem; align-items:center">
+      <div style="background:var(--bg); border:1px solid var(--border); border-radius:12px; padding:1rem 1.5rem; font-family:monospace; font-size:1.1rem; flex:1; min-width:260px">
+        <span style="color:var(--text3)">IF </span><span style="color:var(--accent2)">EGU</span> <span style="color:var(--text3)">&gt;</span> <span style="color:var(--amber)">0.01</span><span style="color:var(--text3)">:</span>
+        <span style="color:var(--green); margin-left:1rem">→ BUILD GNN</span><br>
+        <span style="color:var(--text3)">ELSE:</span><span style="color:var(--red); margin-left:6.2rem">→ USE XGBoost</span>
+      </div>
+      <div style="font-size:0.82rem; color:var(--text2); flex:1; min-width:200px">
+        Threshold 0.01 was calibrated empirically across all 12 datasets. The correlation between EGU and actual GNN improvement is statistically significant: r = 0.6434, p = 0.024.
+      </div>
+    </div>
+
+    <div class="decision-rule">
+      <div class="decision-card gnn">
+        <div class="emoji">🕸️</div>
+        <h4 style="color:var(--green)">Build the GNN</h4>
+        <div class="condition" style="color:var(--green)">EGU &gt; 0.01</div>
+        <p>Graph structure adds meaningful value beyond what features alone can provide. The improvement headroom is large enough that a GNN is worth the engineering investment.</p>
+        <div style="margin-top:0.75rem; font-size:0.78rem; color:var(--text3)">Example datasets: IP Blocklist, Ecommerce, Vehicle Loan</div>
+      </div>
+      <div class="decision-card xgb">
+        <div class="emoji">⚡</div>
+        <h4 style="color:var(--red)">Use XGBoost</h4>
+        <div class="condition" style="color:var(--red)">EGU ≤ 0.01</div>
+        <p>Either features already explain fraud well, or the graph is too heterophilic for message passing to help, or there is no improvement headroom left. Ship XGBoost.</p>
+        <div style="margin-top:0.75rem; font-size:0.78rem; color:var(--text3)">Example datasets: Credit Card, Customs, Elliptic, Amazon</div>
+      </div>
+    </div>
+
+    <div class="accuracy-display">
+      <div class="acc-big">75%</div>
+      <div class="acc-detail">
+        <p><strong>Decision accuracy</strong> across 12 real-world fraud detection datasets spanning Finance, E-commerce, Cybersecurity, Social Media, and Trade domains.</p>
+        <div class="acc-bar"><div class="acc-bar-fill"></div></div>
+        <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:var(--text3); margin-top:0.25rem"><span>0%</span><span>75% accuracy</span><span>100%</span></div>
+      </div>
+      <div style="text-align:center; flex-shrink:0">
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent2)">r = 0.64</div>
+        <div style="font-size:0.72rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em">EGU–Improvement Correlation</div>
+        <div style="font-size:0.72rem; color:var(--text3); margin-top:0.15rem">p = 0.024 (significant)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div style="max-width:1100px; margin:0 auto; display:flex; justify-content:space-between; flex-wrap:wrap; gap:1rem; align-items:center">
+    <div><strong style="color:var(--text)">GUS Framework</strong> · Graph Utility Scoring for Fraud Detection Model Selection</div>
+    <div style="display:flex; gap:1.5rem">
+      <a href="gus_framework_explained.html">Full Explanation</a>
+      <a href="vp_brief.html">VP Brief</a>
+      <a href="../README.md">README</a>
+      <a href="../EXPERIMENT_RESULTS.md">Results</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ─── HERO COUNTER ANIMATION ─── */
+function animateCount(el, to, decimals, suffix) {
+  let start = 0, duration = 1800, startTime = null;
+  function step(t) {
+    if (!startTime) startTime = t;
+    let prog = Math.min((t - startTime) / duration, 1);
+    let ease = 1 - Math.pow(1 - prog, 3);
+    let val = (start + (to - start) * ease);
+    el.textContent = decimals ? val.toFixed(decimals) + suffix : Math.round(val) + suffix;
+    if (prog < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    animateCount(document.getElementById('stat-datasets'), 12, 0, '');
+    animateCount(document.getElementById('stat-accuracy'), 75, 0, '%');
+    animateCount(document.getElementById('stat-corr'), 0.64, 2, '');
+    animateCount(document.getElementById('stat-r2'), 0.61, 2, '');
+  }, 400);
+});
+
+/* ─── FLOW STEP TABS ─── */
+function showStep(n) {
+  for (let i = 1; i <= 3; i++) {
+    document.getElementById('step' + i).classList.remove('active');
+    document.getElementById('detail' + i).classList.remove('show');
+  }
+  document.getElementById('step' + n).classList.add('active');
+  document.getElementById('detail' + n).classList.add('show');
+}
+
+/* ─── EGU CALCULATOR ─── */
+const presets = {
+  ip:      { fp: 78.4, fh: 77.7, xgb: 91.2, fr: 3 },
+  ecom:    { fp: 75.1, fh: 73.4, xgb: 78.1, fr: 5 },
+  cc:      { fp: 97.4, fh: 4.1,  xgb: 95.9, fr: 0.2 },
+  customs: { fp: 100,  fh: 16.2, xgb: 99.97, fr: 4 },
+  vehicle: { fp: 63.1, fh: 23.8, xgb: 66.3, fr: 22 },
+};
+function loadPreset(k) {
+  const p = presets[k];
+  document.getElementById('fp-slider').value = p.fp;
+  document.getElementById('fh-slider').value = p.fh;
+  document.getElementById('xgb-slider').value = p.xgb;
+  document.getElementById('fr-slider').value = p.fr;
+  updateCalc();
+}
+function updateCalc() {
+  const fp = parseFloat(document.getElementById('fp-slider').value) / 100;
+  const fh = parseFloat(document.getElementById('fh-slider').value) / 100;
+  const xgb = parseFloat(document.getElementById('xgb-slider').value) / 100;
+  const fr = parseFloat(document.getElementById('fr-slider').value);
+
+  document.getElementById('fp-val').textContent = fp.toFixed(2);
+  document.getElementById('fh-val').textContent = fh.toFixed(2);
+  document.getElementById('xgb-val').textContent = xgb.toFixed(2);
+  document.getElementById('fr-val').textContent = fr + '%';
+
+  // Adjusted homophily: correct for class imbalance
+  const fraudRatio = fr / 100;
+  const expectedH = fraudRatio * fraudRatio + (1 - fraudRatio) * (1 - fraudRatio);
+  const adjH = Math.max(0, (fh - expectedH) / (1 - expectedH + 0.001));
+
+  // Graph utility
+  const gu = adjH * (1 - fp);
+  const headroom = 1 - xgb;
+  const egu = gu * headroom;
+
+  // Predicted AUC
+  const predAUC = Math.min(0.99, Math.max(0.5, 0.611 * fp - 0.038 * fh + 0.076 * (fr / 100) + 0.398));
+
+  document.getElementById('egu-display').textContent = egu.toFixed(4);
+  document.getElementById('adj-h-val').textContent = adjH.toFixed(3);
+  document.getElementById('gu-val').textContent = gu.toFixed(3);
+  document.getElementById('headroom-val').textContent = headroom.toFixed(3);
+  document.getElementById('pauc-val').textContent = predAUC.toFixed(3);
+
+  document.getElementById('adj-h-bar').style.width = (adjH * 100) + '%';
+  document.getElementById('gu-bar').style.width = Math.min(100, gu * 500) + '%';
+  document.getElementById('headroom-bar').style.width = (headroom * 100) + '%';
+  document.getElementById('pauc-bar').style.width = ((predAUC - 0.5) * 200) + '%';
+
+  const eguEl = document.getElementById('egu-display');
+  const verdictEl = document.getElementById('verdict-box');
+  const vTitle = document.getElementById('verdict-title');
+  const vDesc = document.getElementById('verdict-desc');
+
+  if (egu > 0.02) {
+    eguEl.style.color = 'var(--green)';
+    verdictEl.className = 'result-verdict verdict-gnn';
+    vTitle.textContent = '✓ Recommend: Build the GNN';
+    vDesc.textContent = 'EGU > 0.02 — strong graph signal. GNN investment is justified.';
+  } else if (egu > 0.01) {
+    eguEl.style.color = 'var(--amber)';
+    verdictEl.className = 'result-verdict verdict-toss';
+    vTitle.textContent = '⟳ Borderline: GNN worth trying';
+    vDesc.textContent = 'EGU between 0.01–0.02 — marginal signal. Consider if you have engineering capacity.';
+  } else {
+    eguEl.style.color = 'var(--red)';
+    verdictEl.className = 'result-verdict verdict-xgb';
+    vTitle.textContent = '✗ Recommend: Use XGBoost';
+    vDesc.textContent = 'EGU ≤ 0.01 — graph adds little value. Ship XGBoost.';
+  }
+}
+updateCalc();
+
+/* ─── AUC FORMULA ─── */
+function updateFormula() {
+  const fp = parseFloat(document.getElementById('f-fp').value) / 100;
+  const fh = parseFloat(document.getElementById('f-fh').value) / 100;
+  const fr = parseFloat(document.getElementById('f-fr').value) / 100;
+  document.getElementById('f-fp-val').textContent = fp.toFixed(2);
+  document.getElementById('f-fh-val').textContent = fh.toFixed(2);
+  document.getElementById('f-fr-val').textContent = (fr * 100).toFixed(0) + '%';
+  const pred = Math.min(0.999, Math.max(0.5, 0.611 * fp - 0.038 * fh + 0.076 * fr + 0.398));
+  document.getElementById('f-result').textContent = pred.toFixed(3);
+}
+updateFormula();
+
+/* ─── HOMOPHILY CANVAS ─── */
+const canvas = document.getElementById('homoCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 400; canvas.height = 340;
+
+const graphModes = {
+  high: { fraudRatio: 0.4, clusterStrength: 0.85, label: 'High Homophily', score: 0.78 },
+  low:  { fraudRatio: 0.4, clusterStrength: 0.1,  label: 'Low Homophily',  score: 0.18 },
+  medium: { fraudRatio: 0.4, clusterStrength: 0.5, label: 'Medium Homophily', score: 0.52 },
+  ring: { fraudRatio: 0.35, clusterStrength: 0.95, label: 'Fraud Ring', score: 0.91 },
+};
+let currentMode = 'high';
+let nodes = [], edges = [], animFrame = 0;
+
+function generateGraph(mode) {
+  const cfg = graphModes[mode];
+  const N = 24;
+  nodes = [];
+  edges = [];
+
+  // Place nodes
+  const fraudCount = Math.round(N * cfg.fraudRatio);
+  for (let i = 0; i < N; i++) {
+    const isFraud = i < fraudCount;
+    let x, y;
+    if (cfg.clusterStrength > 0.7 && isFraud) {
+      // cluster fraud together
+      x = 100 + Math.random() * 100;
+      y = 100 + Math.random() * 100;
+    } else if (cfg.clusterStrength > 0.7 && !isFraud) {
+      x = 220 + Math.random() * 150;
+      y = 150 + Math.random() * 150;
+    } else {
+      x = 30 + Math.random() * 340;
+      y = 30 + Math.random() * 280;
+    }
+    nodes.push({ x, y, fraud: isFraud, vx: 0, vy: 0, r: 8 });
+  }
+
+  // Add ring mode
+  if (mode === 'ring') {
+    const ringNodes = nodes.filter(n => n.fraud).slice(0, 6);
+    const cx = 120, cy = 160, rr = 55;
+    ringNodes.forEach((n, i) => {
+      n.x = cx + Math.cos(i / ringNodes.length * Math.PI * 2) * rr;
+      n.y = cy + Math.sin(i / ringNodes.length * Math.PI * 2) * rr;
+    });
+  }
+
+  // Create edges with homophily bias
+  for (let i = 0; i < N; i++) {
+    const numEdges = 2 + Math.floor(Math.random() * 2);
+    for (let e = 0; e < numEdges; e++) {
+      let j;
+      if (Math.random() < cfg.clusterStrength) {
+        // Same class
+        const sameClass = nodes.map((n, idx) => idx).filter(idx => idx !== i && nodes[idx].fraud === nodes[i].fraud);
+        if (sameClass.length > 0) j = sameClass[Math.floor(Math.random() * sameClass.length)];
+      }
+      if (j === undefined) {
+        j = Math.floor(Math.random() * N);
+        while (j === i) j = Math.floor(Math.random() * N);
+      }
+      if (!edges.find(ed => (ed.a === i && ed.b === j) || (ed.a === j && ed.b === i))) {
+        edges.push({ a: i, b: j, same: nodes[i].fraud === nodes[j].fraud });
+      }
+    }
+  }
+}
+
+function drawGraph() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#0b0d14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw edges
+  edges.forEach(e => {
+    const a = nodes[e.a], b = nodes[e.b];
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    if (e.same) {
+      ctx.strokeStyle = 'rgba(108,99,255,0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = 'rgba(100,116,139,0.25)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  // Draw nodes
+  nodes.forEach(n => {
+    const color = n.fraud ? '#f87171' : '#22d3ee';
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+    ctx.fillStyle = color + '22';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(n.x, n.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  });
+}
+
+function setGraphMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  generateGraph(mode);
+  drawGraph();
+  const cfg = graphModes[mode];
+  document.getElementById('graph-mode-label').textContent = cfg.label;
+  const scoreEl = document.getElementById('homo-score');
+  const barEl = document.getElementById('homo-score-bar');
+  scoreEl.textContent = cfg.score.toFixed(2);
+  barEl.style.width = (cfg.score * 100) + '%';
+  if (cfg.score > 0.6) {
+    scoreEl.style.color = 'var(--green)';
+    barEl.style.background = 'var(--green)';
+  } else if (cfg.score > 0.4) {
+    scoreEl.style.color = 'var(--amber)';
+    barEl.style.background = 'var(--amber)';
+  } else {
+    scoreEl.style.color = 'var(--red)';
+    barEl.style.background = 'var(--red)';
+  }
+  const interpretations = {
+    high: '<strong style="color:var(--green)">High Homophily (0.78):</strong> Fraudsters connect to other fraudsters. GNN message passing propagates the fraud signal strongly — neighbors alert each other. <em>GNNs win here.</em>',
+    low: '<strong style="color:var(--red)">Low Homophily (0.18):</strong> Fraud nodes are scattered among legitimate nodes. Message passing averages away the fraud signal. <em>XGBoost wins here — the graph hurts.</em>',
+    medium: '<strong style="color:var(--amber)">Medium Homophily (0.52):</strong> Fraud is somewhat clustered but not strongly. GNN may help marginally. Need to check EGU to decide.',
+    ring: '<strong style="color:var(--green)">Fraud Ring (0.91):</strong> Classic organized fraud: a tightly connected group of fraudulent accounts. This is where GNNs excel — the ring structure is invisible to tabular models.',
+  };
+  document.getElementById('homo-interpretation').innerHTML = interpretations[mode];
+}
+generateGraph('high');
+drawGraph();
+
+/* ─── DATASET DATA ─── */
+const datasets = [
+  { name: 'IP Blocklist',     domain: 'Cybersecurity',  fp: 0.784, fh: 0.777, xgb: 0.9116, egu: 0.0256, winner: 'gnn',   lesson: 'High homophily + moderate features = GNN wins clearly. IP addresses cluster fraud networks perfectly.' },
+  { name: 'Ecommerce Fraud',  domain: 'E-commerce',     fp: 0.751, fh: 0.734, xgb: 0.7808, egu: 0.0132, winner: 'gnn',   lesson: 'Moderate features, good clustering of fraudulent orders = GNN adds real value here.' },
+  { name: 'Vehicle Loan',     domain: 'Finance',        fp: 0.631, fh: 0.238, xgb: 0.6626, egu: 0.0169, winner: 'gnn',   lesson: 'Weak features compensate for low homophily. Enough headroom for GNN to help despite scattered fraud.' },
+  { name: 'Customs Fraud',    domain: 'Trade',          fp: 1.000, fh: 0.162, xgb: 0.9997, egu: 0.000,  winner: 'xgb',   lesson: 'Perfect features = nothing left for the graph to add. EGU ≈ 0. Classic XGBoost win.' },
+  { name: 'Yelp Fraud',       domain: 'Review',         fp: 0.643, fh: 0.196, xgb: 0.9348, egu: 0.0065, winner: 'xgb',   lesson: 'Low homophily cancels out the weak features. Not enough graph signal.' },
+  { name: 'Twitter Bots',     domain: 'Social',         fp: 0.886, fh: 0.411, xgb: 0.9370, egu: 0.0057, winner: 'xgb',   lesson: 'Strong features already detect bots. Moderate homophily is not enough to overcome this.' },
+  { name: 'Amazon Reviews',   domain: 'Review',         fp: 0.957, fh: 0.102, xgb: 0.9769, egu: 0.0028, winner: 'xgb',   lesson: 'High feature pred + very low homophily = XGBoost dominates. Review fraud is a feature problem.' },
+  { name: 'Elliptic Bitcoin', domain: 'Crypto',         fp: 0.959, fh: 0.510, xgb: 0.9962, egu: 0.0006, winner: 'xgb',   lesson: 'XGBoost at 0.996 leaves no room. Despite decent homophily, there is nothing left to gain.' },
+  { name: 'Credit Card',      domain: 'Payment',        fp: 0.974, fh: 0.041, xgb: 0.9592, egu: 0.0020, winner: 'xgb',   lesson: 'Near-perfect features, near-zero homophily. Payment fraud is a feature problem — not relational.' },
+  { name: 'CC Transactions',  domain: 'Payment',        fp: 0.965, fh: 0.019, xgb: 0.9885, egu: 0.0008, winner: 'xgb',   lesson: 'Same as Credit Card. Individual transaction features fully explain fraud. Graph is irrelevant.' },
+  { name: 'Malicious URLs',   domain: 'Cybersecurity',  fp: 0.970, fh: 0.756, xgb: 0.9885, egu: 0.0005, winner: 'xgb',   lesson: 'Interesting: high homophily but features so strong (0.97) that GNN adds nothing.' },
+  { name: 'Fake Job Postings',domain: 'Employment',     fp: 0.868, fh: 0.360, xgb: 0.9738, egu: 0.0026, winner: 'mixed', lesson: 'Borderline case. Strong features but some graph signal. Results were mixed across experiments.' },
+];
+
+function getColor(winner) {
+  return winner === 'gnn' ? 'var(--green)' : winner === 'xgb' ? 'var(--red)' : 'var(--amber)';
+}
+function renderDatasets(filter) {
+  const grid = document.getElementById('datasets-grid');
+  grid.innerHTML = '';
+  const filtered = filter === 'all' ? datasets : datasets.filter(d => d.winner === filter);
+  filtered.forEach((d, idx) => {
+    const card = document.createElement('div');
+    card.className = `dataset-card winner-${d.winner}`;
+    card.onclick = () => showDatasetDetail(d);
+    const eguColor = d.egu > 0.01 ? 'var(--green)' : d.egu > 0.005 ? 'var(--amber)' : 'var(--red)';
+    card.innerHTML = `
+      <div class="ds-header">
+        <div><div class="ds-name">${d.name}</div><div class="ds-domain">${d.domain}</div></div>
+        <span class="ds-badge badge-${d.winner}">${d.winner === 'gnn' ? 'GNN' : d.winner === 'xgb' ? 'XGBoost' : 'Mixed'}</span>
+      </div>
+      <div class="ds-metrics">
+        <div class="ds-metric-row">
+          <span class="ds-metric-label">Feat. Pred.</span>
+          <div class="ds-metric-bar"><div class="ds-metric-bar-fill" style="width:${d.fp*100}%; background:var(--teal)"></div></div>
+          <span class="ds-metric-val" style="color:var(--teal)">${d.fp.toFixed(2)}</span>
+        </div>
+        <div class="ds-metric-row">
+          <span class="ds-metric-label">Fraud Homo.</span>
+          <div class="ds-metric-bar"><div class="ds-metric-bar-fill" style="width:${d.fh*100}%; background:var(--accent2)"></div></div>
+          <span class="ds-metric-val" style="color:var(--accent2)">${d.fh.toFixed(2)}</span>
+        </div>
+        <div class="ds-metric-row">
+          <span class="ds-metric-label">XGB AUC</span>
+          <div class="ds-metric-bar"><div class="ds-metric-bar-fill" style="width:${(d.xgb-0.5)*200}%; background:var(--amber)"></div></div>
+          <span class="ds-metric-val" style="color:var(--amber)">${d.xgb.toFixed(3)}</span>
+        </div>
+      </div>
+      <div class="ds-egu">
+        <span class="ds-egu-label">Effective GU</span>
+        <span class="ds-egu-val" style="color:${eguColor}">${d.egu.toFixed(4)}</span>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+function filterDatasets(f) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderDatasets(f);
+  document.getElementById('dataset-detail').innerHTML = 'Click a dataset card above to see detailed analysis.';
+}
+function showDatasetDetail(d) {
+  const eguColor = d.egu > 0.01 ? 'var(--green)' : d.egu > 0.005 ? 'var(--amber)' : 'var(--red)';
+  const winnerText = d.winner === 'gnn' ? '<span style="color:var(--green)">✓ GNN Wins</span>' : d.winner === 'xgb' ? '<span style="color:var(--red)">✗ XGBoost Wins</span>' : '<span style="color:var(--amber)">⟳ Mixed Results</span>';
+  document.getElementById('dataset-detail').innerHTML = `
+    <div style="display:flex; gap:1.5rem; flex-wrap:wrap; align-items:flex-start">
+      <div style="flex:1; min-width:200px">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.25rem">${d.domain}</div>
+        <div style="font-size:1.1rem; font-weight:700; color:var(--text); margin-bottom:0.5rem">${d.name}</div>
+        <div style="margin-bottom:0.75rem">${winnerText}</div>
+        <div style="font-size:0.82rem; color:var(--text2)">${d.lesson}</div>
+      </div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap">
+        ${[
+          ['Feature Pred.', d.fp.toFixed(3), 'var(--teal)'],
+          ['Fraud Homo.', d.fh.toFixed(3), 'var(--accent2)'],
+          ['XGB AUC', d.xgb.toFixed(4), 'var(--amber)'],
+          ['Eff. GU', d.egu.toFixed(4), eguColor],
+        ].map(([l, v, c]) => `<div style="background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; text-align:center; min-width:90px">
+          <div style="font-size:0.7rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.25rem">${l}</div>
+          <div style="font-size:1.2rem; font-weight:800; color:${c}">${v}</div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+}
+renderDatasets('all');
+
+/* ─── SCROLL ANIMATIONS ─── */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+/* ─── ACTIVE NAV ─── */
+const sections = document.querySelectorAll('section[id], div[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => { if (window.scrollY >= s.offsetTop - 100) current = s.id; });
+  document.querySelectorAll('.nav-links a').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+});
+</script>
+</body>
+</html>
